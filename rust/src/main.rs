@@ -1,4 +1,5 @@
 // from https://gist.github.com/Manishearth/5fc73c405641162f0712951c387ee67c
+// Discussed at https://news.ycombinator.com/item?id=11878759
 // should be src/main.rs
 
 extern crate time;
@@ -14,14 +15,13 @@ mod tree {
     use std::path::Path;
     use std::{mem};
     use std::cell::{Cell};
-    type Route = (*const Node, i32);
+    type Route = (usize, i32);
     pub struct Node {
         routes: Box<[Route]>,
-        pub visited: Cell<bool>,
     }
 
     impl Node {
-        pub fn routes(&self) -> &[(&Node, i32)] {
+        pub fn routes(&self) -> &[(usize, i32)] {
             unsafe { mem::transmute(&self.routes[..]) }
         }
     }
@@ -51,7 +51,6 @@ mod tree {
         for _ in 0..numnodes {
             nodes.push(Node {
                 routes: vec!().into_boxed_slice(),
-                visited: Cell::new(false),
             });
             vec_nodes.push(vec!())
         }
@@ -64,7 +63,7 @@ mod tree {
             let src: usize  = nums[0].parse().expect("Error: node id was not a uint");
             let dest: usize = nums[1].parse().expect("Error: neighbour id was not an int");
             let cost: i32 = nums[2].parse().expect("Error: route cost was not an int");
-            vec_nodes[src].push((&nodes[dest] as *const Node, cost));
+            vec_nodes[src].push((dest, cost));
         }
 
         for (vec_node, node) in vec_nodes.into_iter().zip(nodes.iter_mut()) {
@@ -75,19 +74,18 @@ mod tree {
     }
 }
 
-fn get_longest_path(nodes: &[Node], cur: &Node) -> i32 {
+fn get_longest_path(nodes: &[Node], c_node: usize, mut visited: u32) -> i32 {
     let mut max = 0;
 
-    cur.visited.set(true);
+    visited = visited | (1 << (c_node as u32));
 
-    for &(neighbor, cost) in cur.routes().iter() {
-        if !neighbor.visited.get() {
-            let dist = cost + get_longest_path(nodes, neighbor);
+    for &(neighbor, cost) in nodes[c_node].routes().iter() {
+    //for &(neighbor, cost) in unsafe{nodes.get_unchecked(c_node)}.routes().iter() {
+        if (visited & (1 << (neighbor as u32))) == 0 {
+            let dist = cost + get_longest_path(nodes, neighbor, visited);
             max = cmp::max(max, dist);
         }
     }
-
-    cur.visited.set(false);
 
     max
 }
@@ -95,7 +93,7 @@ fn get_longest_path(nodes: &[Node], cur: &Node) -> i32 {
 fn main() {
     let tree = tree::read_places();
     let start_time = precise_time_ns();
-    let path = get_longest_path(tree.nodes(), &tree.nodes()[0]);
+    let path = get_longest_path(tree.nodes(), 0, 0);
     let duration = (precise_time_ns() - start_time) / 1000000;
     println!("{} LANGUAGE Rust {}", path, duration);
 }
