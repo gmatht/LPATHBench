@@ -14,7 +14,6 @@ mod tree {
     use std::fs::File;
     use std::path::Path;
     use std::{mem};
-    use std::cell::{Cell};
     type Route = (usize, i32);
     pub struct Node {
         routes: Box<[Route]>,
@@ -74,17 +73,30 @@ mod tree {
     }
 }
 
+macro_rules! twice {
+    ($e:stmt) => ($e;$e);
+}
+
 fn get_longest_path(nodes: &[Node], c_node: usize, mut visited: u32) -> i32 {
     let mut max = 0;
+    let mut iter = nodes[c_node].routes().iter();
 
     visited = visited | (1 << (c_node as u32));
-
-    for &(neighbor, cost) in nodes[c_node].routes().iter() {
-    //for &(neighbor, cost) in unsafe{nodes.get_unchecked(c_node)}.routes().iter() {
-        if (visited & (1 << (neighbor as u32))) == 0 {
-            let dist = cost + get_longest_path(nodes, neighbor, visited);
-            max = cmp::max(max, dist);
-        }
+    loop {
+        twice!(twice!(twice!(twice!(
+            match iter.next() {
+            None => break,
+            Some(&(neighbor,cost)) =>{
+                if (visited & (1 << neighbor)) == 0 {
+                    let dist = cost + get_longest_path(nodes, neighbor, visited);
+                    //if dist > max {max = dist};
+                    max = cmp::max(max, dist);
+                    }
+                }
+            }
+       ))));
+       let _ = max; //prevent unused variable warning
+       panic!();
     }
 
     max
